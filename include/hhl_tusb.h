@@ -55,7 +55,6 @@ typedef struct
 typedef struct
 {
     void (*vendor_rx)(const uint8_t *data, uint16_t len);
-    void (*vendor_rx_preamble)(void);
     void (*platform_sleep_ms)(uint32_t ms);
     void (*hid_output_report)(const uint8_t *buffer, uint16_t len);
     void (*on_mount)(void);

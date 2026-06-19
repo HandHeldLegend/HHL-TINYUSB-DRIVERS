@@ -122,12 +122,6 @@ void tud_vendor_rx_cb(uint8_t itf, uint8_t const *buffer, uint16_t bufsize)
     (void)buffer;
     (void)bufsize;
 
-    void (*preamble)(void) = hhl_tusb_hook_vendor_rx_preamble();
-    if (preamble != NULL)
-    {
-        preamble();
-    }
-
     uint8_t rx_buf[HHL_TUSB_WEBUSB_REPORT_SIZE];
     uint32_t size = tud_vendor_n_read(HHL_TUSB_WEBUSB_VENDOR_INSTANCE, rx_buf, sizeof(rx_buf));
     tud_vendor_n_read_flush(HHL_TUSB_WEBUSB_VENDOR_INSTANCE);

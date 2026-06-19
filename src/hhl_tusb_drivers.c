@@ -100,11 +100,6 @@ void (*hhl_tusb_hook_vendor_rx(void))(const uint8_t *data, uint16_t len)
     return _hooks.vendor_rx;
 }
 
-void (*hhl_tusb_hook_vendor_rx_preamble(void))(void)
-{
-    return _hooks.vendor_rx_preamble;
-}
-
 void (*hhl_tusb_hook_platform_sleep_ms(void))(uint32_t ms)
 {
     return _hooks.platform_sleep_ms;
