@@ -182,6 +182,43 @@ static const uint8_t _gc_desc_ms_os_20[GC_MS_OS_20_DESC_LEN] = {
 
 TU_VERIFY_STATIC(sizeof(_gc_desc_ms_os_20) == GC_MS_OS_20_DESC_LEN, "Incorrect size");
 
+// Microsoft OS 1.0 descriptors (string 0xEE / vendor request 7). Required for
+// WinUSB auto-association when the host does not fetch BOS (bcdUSB 0x0200).
+#define HHL_TUSB_VENDOR_REQUEST_GET_MS_OS_DESCRIPTOR 7
+
+static uint8_t _ms_os_10_compatible_id[] = {
+    0x28, 0x00, 0x00, 0x00, // Descriptor length (40 bytes)
+    0x00, 0x01,             // Version 1.0
+    0x04, 0x00,             // Compatibility ID index
+    0x01,                   // Number of sections
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00,                   // Interface number (IF0)
+    0x01,                   // Reserved
+    'W', 'I', 'N', 'U', 'S', 'B', 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+// DeviceInterfaceGUIDs with Dolphin/Slippi GUID {ecceff35-146c-4ff3-acd9-8f992d09acdd}
+static uint8_t _ms_os_10_extended_feature[] = {
+    0x92, 0x00, 0x00, 0x00, // Descriptor length (146 bytes)
+    0x00, 0x01,             // Version 1.0
+    0x05, 0x00,             // Extended property index
+    0x01, 0x00,             // Number of sections
+    0x88, 0x00, 0x00, 0x00, // Size of property section (136 bytes)
+    0x07, 0x00, 0x00, 0x00, // Property data type (REG_MULTI_SZ)
+    0x2A, 0x00,             // Property name length
+    'D', 0, 'e', 0, 'v', 0, 'i', 0, 'c', 0, 'e', 0,
+    'I', 0, 'n', 0, 't', 0, 'e', 0, 'r', 0, 'f', 0, 'a', 0, 'c', 0, 'e', 0,
+    'G', 0, 'U', 0, 'I', 0, 'D', 0, 's', 0, 0x00, 0x00,
+    0x50, 0x00, 0x00, 0x00, // Property data length (80 bytes)
+    '{', 0, 'e', 0, 'c', 0, 'c', 0, 'e', 0, 'f', 0, 'f', 0, '3', 0, '5', 0, '-', 0,
+    '1', 0, '4', 0, '6', 0, 'c', 0, '-', 0, '4', 0, 'f', 0, 'f', 0, '3', 0, '-', 0,
+    'a', 0, 'c', 0, 'd', 0, '9', 0, '-', 0, '8', 0, 'f', 0, '9', 0, '9', 0, '2', 0,
+    'd', 0, '0', 0, '9', 0, 'a', 0, 'c', 0, 'd', 0, 'd', 0, '}', 0,
+    0x00, 0x00, 0x00, 0x00,
+};
+
 const uint8_t *hhl_tusb_slippi_device_descriptor(void)
 {
     return (const uint8_t *)&_slippi_device_descriptor;
@@ -607,15 +644,34 @@ static bool _slippi_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_cont
         return false;
     }
 
-    if (request->bRequest == HHL_TUSB_VENDOR_REQUEST_MICROSOFT && request->wIndex == 7)
+    switch (request->bRequest)
     {
-        uint16_t total_len = 0;
-        const uint8_t *ms_os_20 = hhl_tusb_slippi_ms_os_20_descriptor();
-        memcpy(&total_len, ms_os_20 + 8, 2);
-        return tud_control_xfer(rhport, request, (void *)(uintptr_t)ms_os_20, total_len);
-    }
+    case HHL_TUSB_VENDOR_REQUEST_GET_MS_OS_DESCRIPTOR:
+        // MS OS 1.0 (advertised by string 0xEE / MSFT100)
+        if (request->wIndex == 4)
+        {
+            return tud_control_xfer(rhport, request, _ms_os_10_compatible_id, sizeof(_ms_os_10_compatible_id));
+        }
+        if (request->wIndex == 5)
+        {
+            return tud_control_xfer(rhport, request, _ms_os_10_extended_feature, sizeof(_ms_os_10_extended_feature));
+        }
+        return false;
 
-    return false;
+    case HHL_TUSB_VENDOR_REQUEST_MICROSOFT:
+        // MS OS 2.0 (advertised by BOS platform capability)
+        if (request->wIndex == 7)
+        {
+            uint16_t total_len = 0;
+            const uint8_t *ms_os_20 = hhl_tusb_slippi_ms_os_20_descriptor();
+            memcpy(&total_len, ms_os_20 + 8, 2);
+            return tud_control_xfer(rhport, request, (void *)(uintptr_t)ms_os_20, total_len);
+        }
+        return false;
+
+    default:
+        return false;
+    }
 }
 
 static const hhl_tusb_driver_ops_s _slippi_ops = {
