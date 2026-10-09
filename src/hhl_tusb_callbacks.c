@@ -86,8 +86,14 @@ bool hhl_tusb_cb_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_control
 // TinyUSB application callbacks (owned by this library)
 //--------------------------------------------------------------------+
 
+// A host asked for the device descriptor (every connection starts with it)
+__attribute__((weak)) void hhl_tusb_event_device_requested(void)
+{
+}
+
 uint8_t const *tud_descriptor_device_cb(void)
 {
+    hhl_tusb_event_device_requested();
     return hhl_tusb_cb_descriptor_device();
 }
 
@@ -96,8 +102,14 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
     return hhl_tusb_cb_descriptor_configuration(index);
 }
 
+// Hosts that support USB 2.1 descriptors (computers) ask for the BOS descriptor; a Switch never does
+__attribute__((weak)) void hhl_tusb_event_bos_requested(void)
+{
+}
+
 uint8_t const *tud_descriptor_bos_cb(void)
 {
+    hhl_tusb_event_bos_requested();
     return hhl_tusb_cb_descriptor_bos();
 }
 
