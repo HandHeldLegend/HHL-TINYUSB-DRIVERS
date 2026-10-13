@@ -15,6 +15,7 @@
 #include "tusb.h"
 #include "device/usbd_pvt.h"
 
+#include "hhl_tusb.h"
 #include "hhl_tusb_provider.h"
 
 #ifdef __cplusplus
@@ -50,6 +51,14 @@ uint16_t       hhl_tusb_slippi_bos_descriptor_len(void);
 /** Microsoft OS 2.0 descriptor set bytes. */
 const uint8_t *hhl_tusb_slippi_ms_os_20_descriptor(void);
 uint16_t       hhl_tusb_slippi_ms_os_20_descriptor_len(void);
+
+/**
+ * Add the WebUSB vendor interface (interface 1) beside the adapter, or not (NULL or disabled).
+ * Call before enumeration. Both interfaces get WinUSB on Windows, so Dolphin keeps the adapter
+ * while the config app uses the other: a program opens each interface on its own.
+ */
+void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb);
+bool hhl_tusb_slippi_webusb_active(void);
 
 /*------------- Class driver API -------------*/
 

@@ -11,8 +11,12 @@ application code.
 | Mode | Description |
 | ---- | ----------- |
 | `HHL_TUSB_DRIVER_HID` | Generic HID (Switch Pro, SInput) with optional WebUSB vendor interface |
-| `HHL_TUSB_DRIVER_XINPUT` | Xbox 360 wired controller |
-| `HHL_TUSB_DRIVER_SLIPPI` | Nintendo GameCube adapter (WUP-028) |
+| `HHL_TUSB_DRIVER_XINPUT` | Xbox 360 wired controller, with optional WebUSB vendor interface (not reachable on Windows, whose Xbox 360 driver takes the whole device) |
+| `HHL_TUSB_DRIVER_SLIPPI` | Nintendo GameCube adapter (WUP-028), with optional WebUSB vendor interface |
+
+`cfg.webusb.enabled` adds the vendor interface to any driver. It takes the lowest free endpoint
+number from 2 up: 2 beside a HID interface on endpoint 1, 3 beside XInput and Slippi. A host that
+only works with the plain device (a console) should get it without.
 
 Enable/disable built-in drivers at compile time (default: both on):
 

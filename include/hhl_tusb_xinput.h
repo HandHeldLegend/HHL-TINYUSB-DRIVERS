@@ -15,6 +15,7 @@
 #include "tusb.h"
 #include "device/usbd_pvt.h"
 
+#include "hhl_tusb.h"
 #include "hhl_tusb_provider.h"
 
 #ifdef __cplusplus
@@ -39,6 +40,15 @@ uint16_t       hhl_tusb_xinput_device_descriptor_len(void);
 /** Raw USB configuration descriptor bytes. */
 const uint8_t *hhl_tusb_xinput_configuration_descriptor(void);
 uint16_t       hhl_tusb_xinput_configuration_descriptor_len(void);
+
+/**
+ * Add the WebUSB vendor interface (interface 1) beside the controller, or not (NULL or disabled).
+ * Call before enumeration. Windows' Xbox 360 driver takes the whole device by its IDs, so there
+ * the interface is not reachable; other hosts give the controller's interface to their XInput
+ * driver and leave the vendor interface free.
+ */
+void hhl_tusb_xinput_configure(const hhl_tusb_webusb_config_s *webusb);
+bool hhl_tusb_xinput_webusb_active(void);
 
 /*------------- Class driver API -------------*/
 

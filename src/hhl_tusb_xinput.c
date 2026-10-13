@@ -1,5 +1,6 @@
 #include "hhl_tusb_xinput.h"
 #include "hhl_tusb_strings.h"
+#include "hhl_tusb_webusb.h"
 
 #if (HHL_TUSB_DRIVER_XINPUT_ENABLE)
 
@@ -100,6 +101,48 @@ const uint8_t *hhl_tusb_xinput_configuration_descriptor(void)
 uint16_t hhl_tusb_xinput_configuration_descriptor_len(void)
 {
     return (uint16_t)sizeof(_xinput_configuration_descriptor);
+}
+
+//--------------------------------------------------------------------+
+// WebUSB beside the controller
+//--------------------------------------------------------------------+
+
+static bool _webusb_active = false;
+static const uint8_t *_device = (const uint8_t *)&_xinput_device_descriptor;
+static const uint8_t *_config = _xinput_configuration_descriptor;
+
+void hhl_tusb_xinput_configure(const hhl_tusb_webusb_config_s *webusb)
+{
+    _webusb_active = false;
+    _device = (const uint8_t *)&_xinput_device_descriptor;
+    _config = _xinput_configuration_descriptor;
+
+    if (webusb == NULL || !webusb->enabled)
+    {
+        return;
+    }
+
+    // bcdUSB 2.1 so the host asks for the BOS descriptor, which leads it to the vendor interface
+    uint16_t config_len = 0;
+    const uint8_t *config = hhl_tusb_webusb_build_config(_xinput_configuration_descriptor,
+                                                         sizeof(_xinput_configuration_descriptor), true, 0,
+                                                         &config_len);
+    const uint8_t *device = hhl_tusb_webusb_patch_device_descriptor(
+        (const uint8_t *)&_xinput_device_descriptor, sizeof(_xinput_device_descriptor));
+    if (config == NULL || device == NULL)
+    {
+        return;
+    }
+
+    _device = device;
+    _config = config;
+    _webusb_active = true;
+    hhl_tusb_webusb_configure(webusb);
+}
+
+bool hhl_tusb_xinput_webusb_active(void)
+{
+    return _webusb_active;
 }
 
 //--------------------------------------------------------------------+
@@ -226,20 +269,45 @@ const usbd_class_driver_t *hhl_tusb_xinput_driver(void)
 // Driver ops
 //--------------------------------------------------------------------+
 
+static const uint8_t *_xinput_ops_device_descriptor(void)
+{
+    return _device;
+}
+
 static const uint8_t *_xinput_ops_config_descriptor(uint8_t index)
 {
     (void)index;
-    return hhl_tusb_xinput_configuration_descriptor();
+    return _config;
+}
+
+static const uint8_t *_xinput_ops_bos_descriptor(void)
+{
+    return _webusb_active ? hhl_tusb_webusb_bos_descriptor() : NULL;
+}
+
+static const uint8_t *_xinput_ops_ms_os_20_descriptor(uint16_t *len)
+{
+    if (len != NULL)
+    {
+        *len = _webusb_active ? hhl_tusb_webusb_ms_os_20_descriptor_len() : 0;
+    }
+    return _webusb_active ? hhl_tusb_webusb_ms_os_20_descriptor() : NULL;
+}
+
+static bool _xinput_ops_vendor_control_xfer(uint8_t rhport, uint8_t stage,
+                                            tusb_control_request_t const *request)
+{
+    return _webusb_active && hhl_tusb_webusb_vendor_control_xfer(rhport, stage, request);
 }
 
 static const hhl_tusb_driver_ops_s _xinput_ops = {
-    .device_descriptor        = hhl_tusb_xinput_device_descriptor,
+    .device_descriptor        = _xinput_ops_device_descriptor,
     .configuration_descriptor = _xinput_ops_config_descriptor,
     .hid_report_descriptor    = NULL,
-    .bos_descriptor           = NULL,
-    .ms_os_20_descriptor      = NULL,
+    .bos_descriptor           = _xinput_ops_bos_descriptor,
+    .ms_os_20_descriptor      = _xinput_ops_ms_os_20_descriptor,
     .descriptor_string        = hhl_tusb_strings_descriptor_cb,
-    .vendor_control_xfer      = NULL,
+    .vendor_control_xfer      = _xinput_ops_vendor_control_xfer,
     .class_driver             = hhl_tusb_xinput_driver,
 };
 

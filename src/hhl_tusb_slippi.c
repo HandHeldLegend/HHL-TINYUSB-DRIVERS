@@ -158,7 +158,7 @@ static const uint8_t _gc_desc_ms_os_20[GC_MS_OS_20_DESC_LEN] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Sub-compatible ID
 
     // Registry property descriptor
-    0x80, 0x00, // Descriptor size (130 bytes)
+    0x80, 0x00, // Descriptor size (128 bytes)
     0x04, 0x00, // Registry Property descriptor
     0x01, 0x00, // Strings are null-terminated Unicode
     0x28, 0x00, // Size of Property Name (40 bytes)
@@ -181,6 +181,100 @@ static const uint8_t _gc_desc_ms_os_20[GC_MS_OS_20_DESC_LEN] = {
     0x64, 0x00, 0x7D, 0x00, 0x00, 0x00};
 
 TU_VERIFY_STATIC(sizeof(_gc_desc_ms_os_20) == GC_MS_OS_20_DESC_LEN, "Incorrect size");
+
+//--------------------------------------------------------------------+
+// With the WebUSB vendor interface beside the adapter
+//--------------------------------------------------------------------+
+
+// Two interfaces make Windows give each its own driver, so each needs its own function subset:
+// the adapter's (WinUSB and Dolphin's GUID, as above) and the vendor interface's.
+#define GC_WEBUSB_MS_OS_20_DESC_LEN \
+    (GC_MS_OS_20_DESC_LEN + 0x08 /* configuration subset */ + 0x08 /* adapter function subset */ + \
+     HHL_TUSB_WEBUSB_MS_OS_20_FUNCTION_LEN)
+
+static const uint8_t _gc_webusb_desc_bos[] = {
+    TUD_BOS_DESCRIPTOR(TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN, 2),
+    TUD_BOS_WEBUSB_DESCRIPTOR(HHL_TUSB_VENDOR_REQUEST_WEBUSB, 1),
+    TUD_BOS_MS_OS_20_DESCRIPTOR(GC_WEBUSB_MS_OS_20_DESC_LEN, HHL_TUSB_VENDOR_REQUEST_MICROSOFT),
+};
+
+static uint8_t _gc_webusb_desc_ms_os_20[GC_WEBUSB_MS_OS_20_DESC_LEN];
+
+// The adapter's set, split into function subsets: [set header][configuration subset]
+// [adapter function: compatible ID, GUID][vendor interface function]
+static void _gc_webusb_build_ms_os_20(void)
+{
+    uint8_t *p = _gc_webusb_desc_ms_os_20;
+    const uint16_t total = GC_WEBUSB_MS_OS_20_DESC_LEN;
+    const uint16_t adapter_function = (uint16_t)(0x08 + GC_MS_OS_20_DESC_LEN - 0x0A);
+
+    memcpy(p, _gc_desc_ms_os_20, 0x0A);
+    p[8] = (uint8_t)(total & 0xFF);
+    p[9] = (uint8_t)(total >> 8);
+    p += 0x0A;
+
+    const uint8_t configuration[] = {
+        U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_CONFIGURATION), 0, 0,
+        U16_TO_U8S_LE(total - 0x0A),
+    };
+    memcpy(p, configuration, sizeof(configuration));
+    p += sizeof(configuration);
+
+    const uint8_t function[] = {
+        U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION), 0 /* interface */, 0,
+        U16_TO_U8S_LE(adapter_function),
+    };
+    memcpy(p, function, sizeof(function));
+    p += sizeof(function);
+
+    memcpy(p, _gc_desc_ms_os_20 + 0x0A, GC_MS_OS_20_DESC_LEN - 0x0A);
+    p += GC_MS_OS_20_DESC_LEN - 0x0A;
+
+    memcpy(p, hhl_tusb_webusb_ms_os_20_function(), HHL_TUSB_WEBUSB_MS_OS_20_FUNCTION_LEN);
+}
+
+// Not the plain adapter's bcdDevice: Windows keeps what it set up for a device by its IDs and this
+// number, and the two-interface adapter needs setting up afresh
+#define GC_WEBUSB_BCD_DEVICE 0x0110
+
+static bool _webusb_active = false;
+static tusb_desc_device_t _gc_webusb_device_descriptor;
+static const uint8_t *_config = _slippi_configuration_descriptor;
+
+void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb)
+{
+    _webusb_active = false;
+    _config = _slippi_configuration_descriptor;
+
+    if (webusb == NULL || !webusb->enabled)
+    {
+        return;
+    }
+
+    uint16_t config_len = 0;
+    const uint8_t *config = hhl_tusb_webusb_build_config(_slippi_configuration_descriptor,
+                                                         sizeof(_slippi_configuration_descriptor), true, 0,
+                                                         &config_len);
+    if (config == NULL)
+    {
+        return;
+    }
+
+    // bcdUSB 2.1 so the host asks for the BOS descriptor
+    _gc_webusb_device_descriptor = _slippi_device_descriptor;
+    _gc_webusb_device_descriptor.bcdUSB = 0x0210;
+    _gc_webusb_device_descriptor.bcdDevice = GC_WEBUSB_BCD_DEVICE;
+    _gc_webusb_build_ms_os_20();
+
+    _config = config;
+    _webusb_active = true;
+    hhl_tusb_webusb_configure(webusb);
+}
+
+bool hhl_tusb_slippi_webusb_active(void)
+{
+    return _webusb_active;
+}
 
 // Microsoft OS 1.0 descriptors (string 0xEE / vendor request 7). Required for
 // WinUSB auto-association when the host does not fetch BOS (bcdUSB 0x0200).
@@ -365,6 +459,9 @@ static void slippid_init(void)
 
 static uint16_t slippid_open(uint8_t rhport, tusb_desc_interface_t const *desc_itf, uint16_t max_len)
 {
+    // The adapter's interface only: a vendor interface beside it goes to TinyUSB's vendor driver
+    TU_VERIFY(desc_itf->bInterfaceClass == TUSB_CLASS_HID, 0);
+
     // len = interface + hid + n*endpoints
     uint16_t const drv_len = (uint16_t)(sizeof(tusb_desc_interface_t) + sizeof(tusb_hid_descriptor_hid_t) +
                                         desc_itf->bNumEndpoints * sizeof(tusb_desc_endpoint_t));
@@ -611,10 +708,24 @@ const usbd_class_driver_t *hhl_tusb_slippi_driver(void)
 // Driver ops
 //--------------------------------------------------------------------+
 
+static const uint8_t *_slippi_ops_device_descriptor(void)
+{
+    if (_webusb_active)
+    {
+        return (const uint8_t *)&_gc_webusb_device_descriptor;
+    }
+    return hhl_tusb_slippi_device_descriptor();
+}
+
 static const uint8_t *_slippi_ops_config_descriptor(uint8_t index)
 {
     (void)index;
-    return hhl_tusb_slippi_configuration_descriptor();
+    return _config;
+}
+
+static const uint8_t *_slippi_ops_bos_descriptor(void)
+{
+    return _webusb_active ? _gc_webusb_desc_bos : hhl_tusb_slippi_bos_descriptor();
 }
 
 static const uint8_t *_slippi_hid_report_descriptor(uint8_t instance)
@@ -627,9 +738,10 @@ static const uint8_t *_slippi_ms_os_20_descriptor(uint16_t *len)
 {
     if (len != NULL)
     {
-        *len = hhl_tusb_slippi_ms_os_20_descriptor_len();
+        *len = _webusb_active ? (uint16_t)sizeof(_gc_webusb_desc_ms_os_20)
+                              : hhl_tusb_slippi_ms_os_20_descriptor_len();
     }
-    return hhl_tusb_slippi_ms_os_20_descriptor();
+    return _webusb_active ? _gc_webusb_desc_ms_os_20 : hhl_tusb_slippi_ms_os_20_descriptor();
 }
 
 static bool _slippi_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
@@ -646,6 +758,9 @@ static bool _slippi_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_cont
 
     switch (request->bRequest)
     {
+    case HHL_TUSB_VENDOR_REQUEST_WEBUSB:
+        return _webusb_active && hhl_tusb_webusb_vendor_control_xfer(rhport, stage, request);
+
     case HHL_TUSB_VENDOR_REQUEST_GET_MS_OS_DESCRIPTOR:
         // MS OS 1.0 (advertised by string 0xEE / MSFT100)
         if (request->wIndex == 4)
@@ -663,8 +778,7 @@ static bool _slippi_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_cont
         if (request->wIndex == 7)
         {
             uint16_t total_len = 0;
-            const uint8_t *ms_os_20 = hhl_tusb_slippi_ms_os_20_descriptor();
-            memcpy(&total_len, ms_os_20 + 8, 2);
+            const uint8_t *ms_os_20 = _slippi_ms_os_20_descriptor(&total_len);
             return tud_control_xfer(rhport, request, (void *)(uintptr_t)ms_os_20, total_len);
         }
         return false;
@@ -675,10 +789,10 @@ static bool _slippi_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_cont
 }
 
 static const hhl_tusb_driver_ops_s _slippi_ops = {
-    .device_descriptor        = hhl_tusb_slippi_device_descriptor,
+    .device_descriptor        = _slippi_ops_device_descriptor,
     .configuration_descriptor = _slippi_ops_config_descriptor,
     .hid_report_descriptor    = _slippi_hid_report_descriptor,
-    .bos_descriptor           = hhl_tusb_slippi_bos_descriptor,
+    .bos_descriptor           = _slippi_ops_bos_descriptor,
     .ms_os_20_descriptor      = _slippi_ms_os_20_descriptor,
     .descriptor_string        = hhl_tusb_strings_descriptor_cb,
     .vendor_control_xfer      = _slippi_vendor_control_xfer,

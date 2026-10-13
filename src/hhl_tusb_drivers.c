@@ -77,6 +77,14 @@ void hhl_tusb_init(const hhl_tusb_config_s *cfg)
         hhl_tusb_hid_configure(NULL, NULL);
     }
 
+#if (HHL_TUSB_DRIVER_XINPUT_ENABLE)
+    hhl_tusb_xinput_configure(cfg->driver == HHL_TUSB_DRIVER_XINPUT ? &cfg->webusb : NULL);
+#endif
+
+#if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
+    hhl_tusb_slippi_configure(cfg->driver == HHL_TUSB_DRIVER_SLIPPI ? &cfg->webusb : NULL);
+#endif
+
     hhl_tusb_set_active_driver(cfg->driver);
 }
 
@@ -92,7 +100,24 @@ const hhl_tusb_driver_ops_s *hhl_tusb_active_ops(void)
 
 bool hhl_tusb_webusb_active(void)
 {
-    return hhl_tusb_hid_webusb_active();
+    switch (_active_driver)
+    {
+    case HHL_TUSB_DRIVER_HID:
+        return hhl_tusb_hid_webusb_active();
+
+#if (HHL_TUSB_DRIVER_XINPUT_ENABLE)
+    case HHL_TUSB_DRIVER_XINPUT:
+        return hhl_tusb_xinput_webusb_active();
+#endif
+
+#if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
+    case HHL_TUSB_DRIVER_SLIPPI:
+        return hhl_tusb_slippi_webusb_active();
+#endif
+
+    default:
+        return false;
+    }
 }
 
 void (*hhl_tusb_hook_vendor_rx(void))(const uint8_t *data, uint16_t len)

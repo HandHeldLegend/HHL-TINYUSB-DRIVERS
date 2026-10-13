@@ -96,6 +96,14 @@ uint16_t hhl_tusb_webusb_ms_os_20_descriptor_len(void)
     return (uint16_t)sizeof(_webusb_desc_ms_os_20);
 }
 
+// The set less its set header and configuration subset header
+TU_VERIFY_STATIC(MS_OS_20_DESC_LEN - 0x0A - 0x08 == HHL_TUSB_WEBUSB_MS_OS_20_FUNCTION_LEN, "Incorrect size");
+
+const uint8_t *hhl_tusb_webusb_ms_os_20_function(void)
+{
+    return _webusb_desc_ms_os_20 + 0x0A + 0x08;
+}
+
 //--------------------------------------------------------------------+
 // Dynamic composition
 //--------------------------------------------------------------------+
@@ -104,6 +112,29 @@ uint16_t hhl_tusb_webusb_ms_os_20_descriptor_len(void)
 // interface block, with headroom.
 static uint8_t _composed_config[128];
 static uint8_t _patched_device[32];
+
+// The lowest endpoint number from 2 up that the base configuration leaves free: 2 after a HID
+// interface on endpoint 1 (where the config app has always found it), 3 beside XInput and Slippi.
+static uint8_t _free_endpoint_number(const uint8_t *config, uint16_t len)
+{
+    uint16_t used = 1u; // Endpoint 0
+    for (uint16_t i = 0; i + 2 < len && config[i] != 0; i = (uint16_t)(i + config[i]))
+    {
+        if (config[i + 1] == TUSB_DESC_ENDPOINT)
+        {
+            used |= (uint16_t)(1u << (config[i + 2] & 0x0F));
+        }
+    }
+
+    for (uint8_t n = 2; n < 16; n++)
+    {
+        if (!(used & (1u << n)))
+        {
+            return n;
+        }
+    }
+    return 0;
+}
 
 const uint8_t *hhl_tusb_webusb_build_config(const uint8_t *hid_config, uint16_t hid_config_len,
                                             bool append_vendor_interface, uint16_t max_power_ma, uint16_t *out_len)
@@ -127,6 +158,16 @@ const uint8_t *hhl_tusb_webusb_build_config(const uint8_t *hid_config, uint16_t 
         return NULL;
     }
 
+    const uint8_t ep_num = append_vendor_interface ? _free_endpoint_number(hid_config, hid_config_len) : 0;
+    if (append_vendor_interface && ep_num == 0)
+    {
+        if (out_len != NULL)
+        {
+            *out_len = 0;
+        }
+        return NULL;
+    }
+
     memcpy(_composed_config, hid_config, hid_config_len);
 
     if (append_vendor_interface)
@@ -137,15 +178,17 @@ const uint8_t *hhl_tusb_webusb_build_config(const uint8_t *hid_config, uint16_t 
         static const uint8_t vendor_block[HHL_TUSB_WEBUSB_ITF_DESC_LEN] = {
             // Vendor-specific interface descriptor (bInterfaceNumber patched below)
             9, TUSB_DESC_INTERFACE, 0x00, 0x00, 0x02, TUSB_CLASS_VENDOR_SPECIFIC, 0x00, 0x00, 0x00,
-            // Bulk IN endpoint 0x82
-            7, TUSB_DESC_ENDPOINT, 0x82, TUSB_XFER_BULK, U16_TO_U8S_LE(64), 0x00,
-            // Bulk OUT endpoint 0x02
-            7, TUSB_DESC_ENDPOINT, 0x02, TUSB_XFER_BULK, U16_TO_U8S_LE(64), 0x00,
+            // Bulk IN endpoint (number patched below)
+            7, TUSB_DESC_ENDPOINT, 0x80, TUSB_XFER_BULK, U16_TO_U8S_LE(64), 0x00,
+            // Bulk OUT endpoint (number patched below)
+            7, TUSB_DESC_ENDPOINT, 0x00, TUSB_XFER_BULK, U16_TO_U8S_LE(64), 0x00,
         };
 
         uint8_t *p = _composed_config + hid_config_len;
         memcpy(p, vendor_block, HHL_TUSB_WEBUSB_ITF_DESC_LEN);
-        p[2] = vendor_itf_num; // bInterfaceNumber
+        p[2] = vendor_itf_num;               // bInterfaceNumber
+        p[9 + 2] = (uint8_t)(0x80 | ep_num); // IN bEndpointAddress
+        p[16 + 2] = ep_num;                  // OUT bEndpointAddress
 
         // Fix up the configuration descriptor header.
         _composed_config[4] = (uint8_t)(vendor_itf_num + 1);  // bNumInterfaces

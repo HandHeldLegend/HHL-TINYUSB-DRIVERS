@@ -43,6 +43,14 @@ const uint8_t *hhl_tusb_webusb_ms_os_20_descriptor(void);
 uint16_t hhl_tusb_webusb_ms_os_20_descriptor_len(void);
 
 /**
+ * The vendor (WebUSB) interface's own part of that set: its function subset (interface 1), with
+ * the WinUSB compatible ID and its interface GUID. A driver whose own interface needs a function
+ * subset too (Slippi's, for WinUSB) builds its set from its own function and this one.
+ */
+#define HHL_TUSB_WEBUSB_MS_OS_20_FUNCTION_LEN 160
+const uint8_t *hhl_tusb_webusb_ms_os_20_function(void);
+
+/**
  * Build the final configuration descriptor from a HID-only base, optionally
  * appending the vendor (WebUSB) interface and/or overriding bMaxPower. The
  * result is written into a library-owned static buffer that remains valid
