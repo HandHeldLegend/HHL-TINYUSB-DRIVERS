@@ -318,9 +318,13 @@ bool hhl_tusb_webusb_vendor_control_xfer(uint8_t rhport, uint8_t stage, tusb_con
 // WebUSB vendor bulk reporting (host firmware uses these instead of tud_vendor_*)
 //--------------------------------------------------------------------+
 
+// Only once the host has configured the device and the vendor interface is open: TinyUSB lets a write
+// start on an endpoint before that, and its RP2040 driver (RP2040 and RP2350) then panics ("ep ..
+// was already available"). Traffic for the config app arrives at any time, a USB restart in place
+// included.
 static bool _hhl_tusb_webusb_write_available(void)
 {
-    if (!hhl_tusb_webusb_active())
+    if (!hhl_tusb_webusb_active() || !tud_ready() || !tud_vendor_n_mounted(HHL_TUSB_WEBUSB_VENDOR_INSTANCE))
     {
         return false;
     }

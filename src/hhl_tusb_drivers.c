@@ -120,14 +120,17 @@ void (*hhl_tusb_hook_on_sof(void))(uint32_t frame_count)
     return _hooks.on_sof;
 }
 
+// TinyUSB keeps the count from the previous start: set it, never add to it. Added to, a restart in
+// place (Slippi, then SInput) left a count of 1 with no driver, and TinyUSB crashed on it.
 usbd_class_driver_t const *usbd_app_driver_get_cb(uint8_t *driver_count)
 {
+    *driver_count = 0;
     if (_active_ops != NULL && _active_ops->class_driver != NULL)
     {
         const usbd_class_driver_t *driver = _active_ops->class_driver();
         if (driver != NULL)
         {
-            *driver_count += 1;
+            *driver_count = 1;
             return driver;
         }
     }
