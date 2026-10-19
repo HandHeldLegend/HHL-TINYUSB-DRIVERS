@@ -11,6 +11,7 @@
 
 option(HHL_TUSB_DRIVER_XINPUT_ENABLE "Build the XInput TinyUSB driver" ON)
 option(HHL_TUSB_DRIVER_SLIPPI_ENABLE "Build the Slippi/GameCube TinyUSB driver" ON)
+option(HHL_TUSB_DRIVER_NS2_ENABLE "Build the Switch 2 controller TinyUSB driver" ON)
 
 add_library(hhl_tinyusb_drivers INTERFACE)
 
@@ -23,6 +24,7 @@ target_sources(hhl_tinyusb_drivers INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/src/hhl_tusb_webusb.c
   ${CMAKE_CURRENT_LIST_DIR}/src/hhl_tusb_xinput.c
   ${CMAKE_CURRENT_LIST_DIR}/src/hhl_tusb_slippi.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/hhl_tusb_ns2.c
 )
 
 target_include_directories(hhl_tinyusb_drivers INTERFACE
@@ -32,6 +34,7 @@ target_include_directories(hhl_tinyusb_drivers INTERFACE
 target_compile_definitions(hhl_tinyusb_drivers INTERFACE
   HHL_TUSB_DRIVER_XINPUT_ENABLE=$<BOOL:${HHL_TUSB_DRIVER_XINPUT_ENABLE}>
   HHL_TUSB_DRIVER_SLIPPI_ENABLE=$<BOOL:${HHL_TUSB_DRIVER_SLIPPI_ENABLE}>
+  HHL_TUSB_DRIVER_NS2_ENABLE=$<BOOL:${HHL_TUSB_DRIVER_NS2_ENABLE}>
 )
 
 # TinyUSB headers (tusb.h / device/usbd_pvt.h) are required to compile the

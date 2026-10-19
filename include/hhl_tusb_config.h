@@ -17,6 +17,10 @@
 #define HHL_TUSB_DRIVER_SLIPPI_ENABLE 1
 #endif
 
+#ifndef HHL_TUSB_DRIVER_NS2_ENABLE
+#define HHL_TUSB_DRIVER_NS2_ENABLE 1
+#endif
+
 //--------------------------------------------------------------------+
 // XInput (Xbox 360) class driver
 //--------------------------------------------------------------------+

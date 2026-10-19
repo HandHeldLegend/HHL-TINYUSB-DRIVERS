@@ -17,6 +17,10 @@
 #include "hhl_tusb_slippi.h"
 #endif
 
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+#include "hhl_tusb_ns2.h"
+#endif
+
 static hhl_tusb_driver_t _active_driver = HHL_TUSB_DRIVER_NONE;
 static const hhl_tusb_driver_ops_s *_active_ops = NULL;
 static hhl_tusb_host_hooks_s _hooks = {0};
@@ -45,6 +49,12 @@ void hhl_tusb_set_active_driver(hhl_tusb_driver_t driver)
 #if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
     case HHL_TUSB_DRIVER_SLIPPI:
         _active_ops = hhl_tusb_slippi_ops();
+        break;
+#endif
+
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+    case HHL_TUSB_DRIVER_NS2:
+        _active_ops = hhl_tusb_ns2_ops();
         break;
 #endif
 
@@ -83,6 +93,10 @@ void hhl_tusb_init(const hhl_tusb_config_s *cfg)
 
 #if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
     hhl_tusb_slippi_configure(cfg->driver == HHL_TUSB_DRIVER_SLIPPI ? &cfg->webusb : NULL);
+#endif
+
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+    hhl_tusb_ns2_configure(cfg->driver == HHL_TUSB_DRIVER_NS2 ? &cfg->ns2 : NULL);
 #endif
 
     hhl_tusb_set_active_driver(cfg->driver);

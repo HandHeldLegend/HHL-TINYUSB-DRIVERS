@@ -18,6 +18,10 @@
 #include "hhl_tusb_slippi.h"
 #endif
 
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+#include "hhl_tusb_ns2.h"
+#endif
+
 void hhl_tusb_task(void)
 {
     tud_task();
@@ -51,6 +55,11 @@ bool hhl_tusb_report_ready(void)
         return tud_slippi_ready();
 #endif
 
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+    case HHL_TUSB_DRIVER_NS2:
+        return tud_ns2_ready();
+#endif
+
     default:
         return false;
     }
@@ -71,6 +80,11 @@ bool hhl_tusb_report_send(uint8_t report_id, const void *report, uint16_t len)
 #if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
     case HHL_TUSB_DRIVER_SLIPPI:
         return tud_slippi_report(report_id, report, len);
+#endif
+
+#if (HHL_TUSB_DRIVER_NS2_ENABLE)
+    case HHL_TUSB_DRIVER_NS2:
+        return tud_ns2_report(report_id, report, len);
 #endif
 
     default:
