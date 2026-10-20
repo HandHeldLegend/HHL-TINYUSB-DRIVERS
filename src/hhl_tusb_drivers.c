@@ -92,7 +92,8 @@ void hhl_tusb_init(const hhl_tusb_config_s *cfg)
 #endif
 
 #if (HHL_TUSB_DRIVER_SLIPPI_ENABLE)
-    hhl_tusb_slippi_configure(cfg->driver == HHL_TUSB_DRIVER_SLIPPI ? &cfg->webusb : NULL);
+    hhl_tusb_slippi_configure(cfg->driver == HHL_TUSB_DRIVER_SLIPPI ? &cfg->webusb : NULL,
+                              cfg->driver == HHL_TUSB_DRIVER_SLIPPI && cfg->slippi_console);
 #endif
 
 #if (HHL_TUSB_DRIVER_NS2_ENABLE)

@@ -116,6 +116,16 @@ static const uint8_t _slippi_configuration_descriptor[SLIPPI_CONFIG_DESCRIPTOR_L
     7, TUSB_DESC_ENDPOINT, 0x01, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(6), 1,
 };
 
+// For a console: polled every 8 ms, as Nintendo's adapter asks. A Switch polls at whatever rate
+// the descriptor asks for, and 1 ms troubles it.
+static const uint8_t _slippi_configuration_descriptor_console[SLIPPI_CONFIG_DESCRIPTOR_LEN] = {
+    TUD_CONFIG_DESCRIPTOR(1, 1, 0, SLIPPI_CONFIG_DESCRIPTOR_LEN, TUSB_DESC_CONFIG_ATT_SELF_POWERED, 500),
+    9, TUSB_DESC_INTERFACE, 0x00, 0x00, 0x02, TUSB_CLASS_HID, 0x00, 0x00, 0x00,
+    9, HID_DESC_TYPE_HID, U16_TO_U8S_LE(0x0110), 0x00, 0x01, HID_DESC_TYPE_REPORT, U16_TO_U8S_LE(sizeof(_gc_hid_report_descriptor)),
+    7, TUSB_DESC_ENDPOINT, 0x82, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(37), 8,
+    7, TUSB_DESC_ENDPOINT, 0x01, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(6), 8,
+};
+
 /**** GameCube Adapter BOS Descriptor ****/
 static const uint8_t _gc_desc_bos[] = {
     // BOS descriptor
@@ -241,12 +251,13 @@ static bool _webusb_active = false;
 static tusb_desc_device_t _gc_webusb_device_descriptor;
 static const uint8_t *_config = _slippi_configuration_descriptor;
 
-void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb)
+void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb, bool console)
 {
     _webusb_active = false;
-    _config = _slippi_configuration_descriptor;
+    _config = console ? _slippi_configuration_descriptor_console : _slippi_configuration_descriptor;
 
-    if (webusb == NULL || !webusb->enabled)
+    // A console gets the plain adapter
+    if (console || webusb == NULL || !webusb->enabled)
     {
         return;
     }

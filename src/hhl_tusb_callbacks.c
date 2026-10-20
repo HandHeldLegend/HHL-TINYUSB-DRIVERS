@@ -113,8 +113,15 @@ uint8_t const *tud_descriptor_bos_cb(void)
     return hhl_tusb_cb_descriptor_bos();
 }
 
+// A host asked for a string descriptor (hosts differ in which, and when)
+__attribute__((weak)) void hhl_tusb_event_string_requested(uint8_t index)
+{
+    (void)index;
+}
+
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid)
 {
+    hhl_tusb_event_string_requested(index);
     return hhl_tusb_cb_descriptor_string(index, langid);
 }
 

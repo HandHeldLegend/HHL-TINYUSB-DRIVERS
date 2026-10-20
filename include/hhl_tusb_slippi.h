@@ -57,7 +57,8 @@ uint16_t       hhl_tusb_slippi_ms_os_20_descriptor_len(void);
  * Call before enumeration. Both interfaces get WinUSB on Windows, so Dolphin keeps the adapter
  * while the config app uses the other: a program opens each interface on its own.
  */
-void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb);
+// console: polled every 8 ms, as Nintendo's adapter (no WebUSB beside it)
+void hhl_tusb_slippi_configure(const hhl_tusb_webusb_config_s *webusb, bool console);
 bool hhl_tusb_slippi_webusb_active(void);
 
 /*------------- Class driver API -------------*/

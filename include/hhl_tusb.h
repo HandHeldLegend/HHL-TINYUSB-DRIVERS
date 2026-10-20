@@ -91,6 +91,8 @@ typedef struct
     hhl_tusb_webusb_config_s webusb;
     hhl_tusb_hid_config_s hid;
     hhl_tusb_ns2_config_s ns2;
+    // Slippi on a console: Nintendo's 8 ms polling, no WebUSB
+    bool slippi_console;
     hhl_tusb_host_hooks_s hooks;
 } hhl_tusb_config_s;
 
